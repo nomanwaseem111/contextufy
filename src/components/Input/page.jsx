@@ -1,5 +1,6 @@
 "use client";
-
+import Eye from "../../../public/assets/Eye.svg"
+import EyeOff from "../../../public/assets/EyeOff.svg"
 export default function Input({
   id,
   label,
