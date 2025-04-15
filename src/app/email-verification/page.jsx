@@ -2,14 +2,19 @@
 
 import Button from "@/components/Button/page";
 import Input from "@/components/Input/page";
+import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-
+import { autoSignIn, confirmSignUp, resendSignUpCode } from "aws-amplify/auth";
+import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
 export default function EmailVerification() {
-  const [timer, setTimer] = useState(119);
+  const [timer, setTimer] = useState(60);
   const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-
+  const [isLoader, setIsLoader] = useState(false);
+  const [resendLoader, setResendLoader] = useState(false);
+  const { states, actions } = useAuth();
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -21,29 +26,67 @@ export default function EmailVerification() {
     },
   });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prevTimer) => (prevTimer > 0 ? prevTimer - 1 : 0));
-    }, 1000);
+  // const onSubmit = async (data) => {
+  //   console.log(data);
+  //   reset();
+  // };
 
+  useEffect(() => {
+    if (timer <= 0) return;
+    const interval = setInterval(() => {
+      setTimer((prev) => prev - 1);
+    }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timer]);
 
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
-      .toString()
-      .padStart(2, "0")}`;
-  };
-
-  const handleResend = () => {
-    setTimer(119);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   const onSubmit = async (data) => {
-    console.log(data);
-    reset();
+    setIsLoader(true);
+    try {
+      const response = await confirmSignUp({
+        username: states?.email,
+        confirmationCode: data?.code,
+      });
+      console.log("confirmSignUp", response);
+      if (response?.isSignUpComplete) {
+        await autoSignIn();
+        await actions.fetchAuthData();
+        setIsLoader(false);
+        toast.success("You are successfully logged in");
+        router.push("/");
+      }
+    } catch (error) {
+      console.error("confirmSignUp", error);
+      toast.error(
+        "Invalid verification code provided, please try again.",
+        error.message
+      );
+      setIsLoader(false);
+    }
+  };
+
+  
+
+  const handleResend = async () => {
+    setResendLoader(true);
+    try {
+      const response = await resendSignUpCode({
+        username: states?.email,
+      });
+      console.log("response",response);
+      toast.success("Verification code resent successfully!");
+      setTimer(60); // restart timer
+    } catch (error) {
+      console.error("Resend Error:", error);
+      toast.error("Failed to resend code: " + error.message);
+    } finally {
+      setResendLoader(false);
+    }
   };
 
   return (
@@ -99,8 +142,8 @@ export default function EmailVerification() {
                 />
                 <Button
                   type="submit"
-                  loading={loading}
-                  disabled={loading}
+                  loading={isLoader}
+                  disabled={isLoader}
                   className="bg-emerald-500 hover:bg-emerald-600 max-w-[125px] !rounded-[12px] !h-[43px] text-white"
                 >
                   Confirm
@@ -114,13 +157,25 @@ export default function EmailVerification() {
                 verification code
               </p>
               <div className="mt-2">
-                <Button
+                {/* <Button
                   type="button"
                   onClick={handleResend}
                   className="!text-emerald-500 hover:bg-white bg-white font-medium"
-                  disabled={timer > 0 && timer < 119}
+                  // disabled={timer > 0 && timer < 119}
                 >
                   Resend
+                </Button> */}
+                <Button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendLoader || timer > 0}
+                  className="!text-emerald-500 hover:bg-white bg-white font-medium"
+                >
+                  {resendLoader
+                    ? "Sending..."
+                    : timer > 0
+                    ? `Resend Code`
+                    : "Resend Code"}
                 </Button>
                 <p className="mt-1">{formatTime(timer)}</p>
               </div>

@@ -7,12 +7,17 @@ import { useForm } from "react-hook-form";
 import { FacebookIcon, GoogleIcon } from "../../../public";
 import Link from "next/link";
 import Modal from "@/components/Modal/page";
+import { signUp,signInWithRedirect  } from "aws-amplify/auth";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-toastify";
 
 export default function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [isLoader, setIsLoader] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(true);
-
+  const router = useRouter();
+  const { setters } = useAuth();
   const {
     register,
     handleSubmit,
@@ -23,16 +28,48 @@ export default function RegisterForm() {
       fullName: "",
       email: "",
       password: "",
-      agreeToTerms: false,
     },
   });
 
   const onSubmit = async (data) => {
-    setLoading(true);
-    console.log(data);
-    setLoading(false);
+    if (isLoader) return;
 
-    reset();
+    setIsLoader(true);
+
+    try {
+      const response = await signUp({
+        username: data?.email,
+        password: data?.password,
+        options: {
+          userAttributes: {
+            given_name: data?.fullName,
+          },
+          autoSignIn: true,
+        },
+      });
+
+      console.log("response", response);
+
+      if (response?.nextStep?.signUpStep === "CONFIRM_SIGN_UP") {
+        setters.setEmail(data?.email);
+        toast.success("code sent you email");
+        router.push("/email-verification");
+        setIsLoader(false);
+        return;
+      }
+    } catch (error) {
+      setIsLoader(false);
+      console.log(error?.message);
+      toast.error(error?.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    await signInWithRedirect({ provider: "Google" });
+  };
+  
+  const handleFacebookLogin = async () => {
+    await signInWithRedirect({ provider: "Facebook" });
   };
 
   const togglePasswordVisibility = () => {
@@ -99,31 +136,11 @@ export default function RegisterForm() {
               })}
             />
 
-            <Input
-              id="agreeToTerms"
-              type="checkbox"
-              label={
-                <>
-                  Agree to our{" "}
-                  <a
-                    href="#"
-                    className="text-[#25c791] font-semibold font-[inter] hover:underline"
-                  >
-                    Terms & Conditions
-                  </a>
-                </>
-              }
-              error={errors.agreeToTerms?.message}
-              {...register("agreeToTerms", {
-                required: "You must agree to the terms and conditions",
-              })}
-            />
-
             <Button
-              loading={loading}
+              loading={isLoader}
               type="submit"
               className="h-[46px]"
-              disabled={loading}
+              disabled={isLoader}
             >
               Register
             </Button>
@@ -139,11 +156,15 @@ export default function RegisterForm() {
             <div className="mt-[27px] space-y-2">
               <Button
                 icon={GoogleIcon}
+                onClick={handleGoogleLogin}
+
                 className="w-full flex font-[inter] text-[14px] h-[43px] items-center justify-center gap-2 bg-white !text-[#000000] py-2 px-4 border border-gray-300 !rounded-[12px] hover:bg-gray-50 transition-colors"
               >
                 Continue With Google
               </Button>
               <Button
+                onClick={handleFacebookLogin}
+
                 icon={FacebookIcon}
                 className="w-full flex font-[inter] text-[14px] h-[43px] items-center justify-center gap-2 bg-white !text-[#000000] py-2 px-4 border border-gray-300 !rounded-[12px] hover:bg-gray-50 transition-colors"
               >
@@ -190,7 +211,7 @@ export default function RegisterForm() {
         }
       ></Modal> */}
 
-      <Modal
+      {/* <Modal
         className="!max-w-[560px] w-full text-emerald-500 px-[78px] py-[55px] !rounded-[20px]"
         isOpen={isModalOpen}
         title={
@@ -203,7 +224,7 @@ export default function RegisterForm() {
             Congratulations! you are successfully registered to Contextufy
           </p>
         }
-      ></Modal>
+      ></Modal> */}
 
       <footer className="p-4 font-[inter] bg-[#FFFFFF]">
         <div className="max-w-7xl mx-auto flex flex-wrap justify-center gap-6 text-sm text-gray-600">

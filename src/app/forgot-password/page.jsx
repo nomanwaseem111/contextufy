@@ -3,14 +3,19 @@
 import Button from "@/components/Button/page";
 import Input from "@/components/Input/page";
 import Modal from "@/components/Modal/page";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { AccountBannedIcon } from "../../../public";
+import { confirmResetPassword, resetPassword } from "aws-amplify/auth";
+import { toast } from "react-toastify";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ForgotPassword() {
   const [timer, setTimer] = useState(119);
-  const [loading, setLoading] = useState(false);
+  const [isLoader, setLoader] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(true);
+  const { setters } = useAuth();
   const {
     register,
     handleSubmit,
@@ -22,29 +27,62 @@ export default function ForgotPassword() {
     },
   });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prevTimer) => (prevTimer > 0 ? prevTimer - 1 : 0));
-    }, 1000);
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setTimer((prevTimer) => (prevTimer > 0 ? prevTimer - 1 : 0));
+  //   }, 1000);
 
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
 
-  const formatTime = (seconds) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
-      .toString()
-      .padStart(2, "0")}`;
-  };
+  // const formatTime = (seconds) => {
+  //   const minutes = Math.floor(seconds / 60);
+  //   const remainingSeconds = seconds % 60;
+  //   return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+  //     .toString()
+  //     .padStart(2, "0")}`;
+  // };
 
-  const handleResend = () => {
-    setTimer(119);
-  };
+  // const handleResend = () => {
+  //   setTimer(119);
+  // };
+
+  const router = useRouter();
 
   const onSubmit = async (data) => {
-    console.log(data);
-    reset();
+    if (isLoader) return;
+
+    setLoader(true);
+    try {
+      setters.setEmail(data.email);
+
+      const response = await resetPassword({ username: data.email });
+      console.log("response", response);
+      if (
+        response?.nextStep?.resetPasswordStep ===
+        "CONFIRM_RESET_PASSWORD_WITH_CODE"
+      ) {
+        toast.success("Verification code sent to your email.");
+
+        router.push("/change-password");
+        setLoader(false);
+      } else {
+        toast.error("Unexpected response. Please try again.");
+        setLoader(false);
+      }
+    } catch (error) {
+      console.error("Reset Password Error:", error);
+      setLoader(false);
+
+      // Handle specific Amplify or custom errors
+      if (error.name === "UserNotFoundException") {
+        toast.error("User not found.");
+      } else if (error.name === "InvalidParameterException") {
+        toast.error("Invalid email format.");
+      } else {
+        toast.error("Something went wrong. Please try again.");
+      }
+    }
   };
 
   return (
@@ -93,8 +131,8 @@ export default function ForgotPassword() {
                   />
                   <Button
                     type="submit"
-                    loading={loading}
-                    disabled={loading}
+                    loading={isLoader}
+                    disabled={isLoader}
                     className="bg-emerald-500 hover:bg-emerald-600  !rounded-[12px] !h-[43px] text-white"
                   >
                     Send Code
@@ -102,7 +140,7 @@ export default function ForgotPassword() {
                 </div>
               </div>
 
-              <div className="text-center text-sm text-gray-500 mt-4">
+              {/* <div className="text-center text-sm text-gray-500 mt-4">
                 <p>
                   If you do not receive the email use the Button below to resend
                   verification code
@@ -118,7 +156,7 @@ export default function ForgotPassword() {
                   </Button>
                   <p className="mt-1">{formatTime(timer)}</p>
                 </div>
-              </div>
+              </div> */}
             </form>
           </div>
         </div>
@@ -144,7 +182,7 @@ export default function ForgotPassword() {
         </div>
       </div>
 
-      <Modal
+      {/* <Modal
       className="!max-w-[511px] w-full px-[67px] py-[26px]"
         isOpen={isModalOpen}
         icon={AccountBannedIcon}
@@ -163,7 +201,7 @@ export default function ForgotPassword() {
           If You Believe This Is A Mistake Or Would Like To Appeal The Decision,
           Please Contact Our Support Team
         </p>
-      </Modal>
+      </Modal> */}
     </>
   );
 }

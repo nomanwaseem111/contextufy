@@ -1,10 +1,8 @@
-import { Manrope,Inter } from "next/font/google";
+import { AuthContext } from "@/context/AuthContext";
+import { Manrope, Inter } from "next/font/google";
+import { ToastContainer } from "react-toastify";
+import ConfigureAmplifyClientSide from "./amplify-cognito-config";
 import "./globals.css";
-
-// const geistSans = Geist({
-//   variable: "--font-geist-sans",
-//   subsets: ["latin"],
-// });
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -24,10 +22,14 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body
-        className={`${manrope.variable} ${inter.variable} antialiased`}
-      >
-        {children}
+      <body className={`${manrope.variable} ${inter.variable} antialiased`}>
+        <AuthContext>
+        <ToastContainer />
+
+          <ConfigureAmplifyClientSide />
+
+          {children}
+        </AuthContext>
       </body>
     </html>
   );

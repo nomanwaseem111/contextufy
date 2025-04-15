@@ -1,12 +1,18 @@
-'use client'
-import Button from '@/components/Button/page'
-import React from 'react'
-import { FacebookIcon, GoogleIcon } from '../../../public'
-import Input from '@/components/Input/page'
-import Link from 'next/link'
+"use client";
+import Button from "@/components/Button/page";
+import React, { useState } from "react";
+import { FacebookIcon, GoogleIcon } from "../../../public";
+import Input from "@/components/Input/page";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { resendSignUpCode, signIn } from "aws-amplify/auth";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-toastify";
 
 export default function LoginForm() {
+  const [isLoader, setIsLoader] = useState(false);
+  const { actions } = useAuth();
+
   const {
     register,
     handleSubmit,
@@ -16,24 +22,50 @@ export default function LoginForm() {
     defaultValues: {
       email: "",
       password: "",
-    
     },
   });
 
-  const onSubmit = (data1) =>{
-console.log('data1',data1);
-reset()
+  const onSubmit = async (data) => {
+    if (isLoader) return;
+    setIsLoader(true);
+    try {
+      const res = await signIn({
+        username: data?.email,
+        password: data?.password,
+      });
 
-  } 
+      console.log("res", res);
+
+      if (res.isSignedIn) {
+        await actions.fetchAuthData();
+        setIsLoader(false);
+        toast.success("You are successfully logged in");
+      } else if (res?.nextStep?.signInStep === "CONFIRM_SIGN_UP") {
+        await resendSignUpCode({ username: data?.email });
+        setters.setEmailVerifyModalOpen(true);
+        // navigate("/email-verify", { state: { email: getValues()?.email } });
+        setters.setEmail(getValues()?.email);
+
+        setIsLoader(false);
+        return;
+      } else {
+        toast.error("incorrect email or password");
+      }
+    } catch (error) {
+      setIsLoader(false);
+      console.log(error);
+      toast.error(error.message);
+    }
+  };
+
   return (
-    <div className=' flex-1 flex h-screen items-center justify-center p-4 '>
+    <div className=" flex-1 flex h-screen items-center justify-center p-4 ">
       <div className="w-full max-w-[500px] bg-white font-[manrope]  border border-[#CCD8D3] rounded-[20px]  p-6 md:p-8">
         <h2 className="text-[22px] sm:text-[36px]  lg:text-[36px]  font-[400] text-center text-[#25c791] mb-6">
           Welcome Back!
         </h2>
 
-        <form className="space-y-4 " onSubmit={handleSubmit(onSubmit)} >
-
+        <form className="space-y-4 " onSubmit={handleSubmit(onSubmit)}>
           <Input
             id="email"
             label="Email Address"
@@ -47,7 +79,6 @@ reset()
                 message: "Invalid email address",
               },
             })}
-
           />
 
           <Input
@@ -63,20 +94,21 @@ reset()
                 message: "Password must be at least 8 characters",
               },
             })}
-            
           />
-         <div className='flex justify-end items-center'>
-           
-            <Link href="/forgot-password" className='text-[#25C791] text-sm font-normal hover:underline'>
+          <div className="flex justify-end items-center">
+            <Link
+              href="/forgot-password"
+              className="text-[#25C791] text-sm font-normal hover:underline"
+            >
               Forget Password?
             </Link>
           </div>
 
           <Button
-            // loading={loading}
+            loading={isLoader}
             type="submit"
             className="h-[46px] !bg-[#25C791] !rounded-[12px]"
-          // disabled={loading}
+            disabled={isLoader}
           >
             Sign In
           </Button>
@@ -108,13 +140,15 @@ reset()
         <div className="mt-6 text-center text-sm">
           <p className="text-[#8e8e93]">
             Don't have an account?
-            <Link href="/register" className="text-[#25c791] font-semibold hover:underline">
+            <Link
+              href="/register"
+              className="text-[#25c791] font-semibold hover:underline"
+            >
               Register Now
             </Link>
           </p>
         </div>
-      </div> </div>
-  )
+      </div>{" "}
+    </div>
+  );
 }
-
-
